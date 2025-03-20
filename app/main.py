@@ -2,7 +2,18 @@ from app.db_utils import DBUtils
 from app.data_processor import DataProcessor
 from app.train_model import TrainModel
 import time
-from datetime import datetime
+from datetime import datetime, timezone
+from logtail import LogtailHandler
+import logging
+
+handler = LogtailHandler(
+    source_token="s8nqFSrHvQCq4JvU2uK7XTjq",
+    host="s1243360.eu-nbg-2.betterstackdata.com",
+)
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+logger.handlers = []
+logger.addHandler(handler)
 
 
 class Orchestrator:
@@ -13,11 +24,10 @@ class Orchestrator:
 
     def run(self):
         while True:
+            logger.info(f"Keep Alive")
             if datetime.now(tz=timezone.utc).minute == 00:
                 self.process_data()
-                time.sleep(
-                    60
-                )  # wait a minute to ensure we don't run the same tick twice
+            time.sleep(60)  # wait a minute to ensure we don't run the same tick twice
 
     def process_data(self):
         docs = self.db_client.find_documents_and_groupby(
