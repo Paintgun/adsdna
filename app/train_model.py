@@ -134,3 +134,4 @@ class TrainModel:
                 continue
             df_copy[column] = (df_copy[column] - df_copy[column].min()) / (df_copy[column].max() - df_copy[column].min())
         return df_copy
+    
