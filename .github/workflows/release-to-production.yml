@@ -46,6 +46,9 @@ jobs:
             docker login ${{ env.DOCKER_REGISTRY }} --username ${{ secrets.GIT_HUB_USERNAME }} --password ${{ secrets.GITHUB_TOKEN }}
             docker pull ${{ env.DOCKER_REGISTRY }}/${{ env.NAME }}:${{ env.VERSION }}
 
+            docker stop ${{ env.NAME }} || true
+            docker rm ${{ env.NAME }} || true
+ 
             echo "starting server instance..."
             docker run -d --restart always -p 5000:5000 --name ${{ env.NAME }} \
             ${{ env.DOCKER_REGISTRY }}/${{ env.NAME }}:${{ env.VERSION }}
