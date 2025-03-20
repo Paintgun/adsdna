@@ -15,6 +15,7 @@ env:
 jobs:
   release:
     name: Release
+    environment: DEV
     if: github.event.pull_request.merged == true && github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     steps:
@@ -68,5 +69,5 @@ jobs:
             docker rm ${{ env.NAME }} || true
 
             echo "starting server instance..."
-            docker run -d --restart always -p 5000:5000 --name ${{ env.NAME }} \
+            MONGO_DB_URI=${{ secrets.DEV_DB_URI }} docker run -d --restart always -p 5000:5000 --name ${{ env.NAME }} \
             ${{ env.DOCKER_REGISTRY }}/${{ env.NAME }}:${{ env.VERSION }}

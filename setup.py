@@ -8,7 +8,7 @@ project_dir = Path(__file__).parent
 
 setuptools.setup(
     name="pg-model-building",
-    version="0.0.5",
+    version="0.0.6",
     description="A Python project to build PG models",
     # Use UTF-8 encoding for README even on Windows by using the encoding argument.
     long_description=project_dir.joinpath("README.md").read_text(encoding="utf-8"),
