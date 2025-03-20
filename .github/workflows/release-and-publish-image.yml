@@ -69,5 +69,6 @@ jobs:
             docker rm ${{ env.NAME }} || true
 
             echo "starting server instance..."
-            MONGO_DB_URI=${{ secrets.DEV_DB_URI }} docker run -d --restart always -p 5000:5000 --name ${{ env.NAME }} \
+            docker run -d --restart always -p 5000:5000 --name ${{ env.NAME }} \
+            -e MONGO_DB_URI=${{ secrets.DEV_DB_URI }} \
             ${{ env.DOCKER_REGISTRY }}/${{ env.NAME }}:${{ env.VERSION }}
