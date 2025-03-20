@@ -24,7 +24,6 @@ class Orchestrator:
 
     def run(self):
         while True:
-            logger.info(f"Keep Alive")
             if datetime.now(tz=timezone.utc).minute == 00:
                 self.process_data()
             time.sleep(60)  # wait a minute to ensure we don't run the same tick twice
