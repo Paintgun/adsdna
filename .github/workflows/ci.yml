@@ -16,7 +16,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Markdown lint
-        uses: actionshub/markdownlint@2.0.2
+        uses: actionshub/markdownlint@v3.1.4
 
       - name: Black
         uses: psf/black@stable
