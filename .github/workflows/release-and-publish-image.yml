@@ -1,0 +1,72 @@
+# on a closed(merged) PR to main
+# 1. creates a GitHub release
+# 2. creates a Docker image and publishes it to a container storage
+# 3. updates the image on the DEV environment a new version
+name: release-and-publish-image
+on:
+  pull_request:
+    types:
+      - closed
+    branches:
+      - main
+env:
+  NAME: 'pg-model-building'
+  DOCKER_REGISTRY: ghcr.io/paintgun
+jobs:
+  release:
+    name: Release
+    if: github.event.pull_request.merged == true && github.actor != 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      # checkout PR "target" branch, i.e. "main"
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.ref }}
+
+      - name: Release Notes
+        run: |
+          set -e
+          # read application version
+          VERSION=$(grep "version=" setup.py | sed -E "s/.*version=['\"]([0-9]+\.[0-9]+\.[0-9]+)['\"].*/\1/")
+          echo "VERSION=${VERSION}" >> $GITHUB_ENV
+
+      - name: Create Release
+        uses: actions/create-release@v1.1.4
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ env.VERSION }}
+          release_name: v.${{ env.VERSION }}
+          body: ${{ github.event.pull_request.body }}
+
+      - name: Image Build and push to GitHub Containers service
+        run: |
+          docker login ${{ env.DOCKER_REGISTRY }} --username ${{ secrets.GIT_HUB_USERNAME }} --password ${{ secrets.GITHUB_TOKEN }}
+          docker build -t ${{ env.DOCKER_REGISTRY }}/${{ env.NAME }}:${{ env.VERSION }} .
+          docker push ${{ env.DOCKER_REGISTRY }}/${{ env.NAME }}:${{ env.VERSION }}
+
+      - name: Deploy to Digital Ocean
+        uses: appleboy/ssh-action@v0.1.5
+        with:
+          # ssh root@<floating or host IP> -i <path to>/id_rsa_do_dev
+          host: ${{ secrets.APP_HOST_DEV }}
+          port: 22
+          username: root
+          key: ${{ secrets.APP_HOST_KEY_DEV }}
+          script: |
+            # install needed tools with auto-approval
+            sudo apt -y install curl xz-utils
+
+            # download and install docker
+            curl -fsSL https://get.docker.com -o get-docker.sh && sh get-docker.sh
+
+            docker login ${{ env.DOCKER_REGISTRY }} --username ${{ secrets.GIT_HUB_USERNAME }} --password ${{ secrets.GITHUB_TOKEN }}
+            docker pull ${{ env.DOCKER_REGISTRY }}/${{ env.NAME }}:${{ env.VERSION }}
+
+            docker stop ${{ env.NAME }} || true
+            docker rm ${{ env.NAME }} || true
+
+            echo "starting server instance..."
+            docker run -d --restart always -p 5000:5000 --name ${{ env.NAME }} \
+            ${{ env.DOCKER_REGISTRY }}/${{ env.NAME }}:${{ env.VERSION }}

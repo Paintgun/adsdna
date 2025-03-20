@@ -1,0 +1,51 @@
+# on a closed(merged) PR to production
+# 1. deploys the image to PROD
+name: release-to-production
+on:
+  pull_request:
+    types:
+      - closed
+    branches:
+      - production
+env:
+  NAME: 'pg-model-building'
+  DOCKER_REGISTRY: ghcr.io/paintgun
+jobs:
+  release:
+    name: Release
+    if: github.event.pull_request.merged == true && github.actor != 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      # checkout PR "target" branch, i.e. "production"
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.ref }}
+
+      - name: Release Notes
+        run: |
+          set -e
+          # read application version
+          VERSION=$(grep "version=" setup.py | sed -E "s/.*version=['\"]([0-9]+\.[0-9]+\.[0-9]+)['\"].*/\1/")
+          echo "VERSION=${VERSION}" >> $GITHUB_ENV
+
+      - name: Deploy to Digital Ocean Host 1
+        uses: appleboy/ssh-action@v0.1.5
+        with:
+          host: ${{ secrets.APP_HOST_PROD }}
+          port: 22
+          username: root
+          key: ${{ secrets.APP_HOST_KEY_PROD }}
+          script: |
+            # install needed tools with auto-approval
+            sudo apt -y install curl xz-utils
+
+            # download and install docker
+            curl -fsSL https://get.docker.com -o get-docker.sh && sh get-docker.sh
+
+            docker login ${{ env.DOCKER_REGISTRY }} --username ${{ secrets.GIT_HUB_USERNAME }} --password ${{ secrets.GITHUB_TOKEN }}
+            docker pull ${{ env.DOCKER_REGISTRY }}/${{ env.NAME }}:${{ env.VERSION }}
+
+            echo "starting server instance..."
+            docker run -d --restart always -p 5000:5000 --name ${{ env.NAME }} \
+            ${{ env.DOCKER_REGISTRY }}/${{ env.NAME }}:${{ env.VERSION }}
