@@ -30,7 +30,7 @@ jobs:
           echo "VERSION=${VERSION}" >> $GITHUB_ENV
 
       - name: Deploy to Digital Ocean Host 1
-        uses: appleboy/ssh-action@v0.1.5
+        uses: appleboy/ssh-action@v1.2.2
         with:
           host: ${{ secrets.APP_HOST_PROD }}
           port: 22
