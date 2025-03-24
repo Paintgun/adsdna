@@ -3,9 +3,15 @@ import pandas as pd
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.utils import resample
 import shap
+import functools
+from concurrent.futures import ProcessPoolExecutor
+import warnings
+from tqdm import tqdm
 
 from app.data_processor import KEEP_VARS, MULTILABEL_VARS
 from app.error_handling import safe_process
+
+warnings.filterwarnings('ignore')
 
 NUMERICAL_VARS = [
     "userCentricity",
@@ -33,10 +39,25 @@ class TrainModel:
         df = self.get_dummies(df, categorical_vars)
         df = self.normalise(df, NUMERICAL_VARS)
         return self.train_model(df)
+    
+    def _train_single_model(self, i, X_processed, y, n_estimators):
+        # Bootstrap sample (resampling with replacement)
+        X_boot, y_boot = resample(X_processed, y, random_state=i)
+        X_boot = np.array(X_boot)
+
+        # Train a new Random Forest model
+        model = RandomForestRegressor(n_estimators=n_estimators)
+        model.fit(X_boot, y_boot)
+
+        # Compute SHAP values
+        explainer = shap.Explainer(model, X_boot)
+        shap_values = explainer(X_boot, check_additivity=False)
+        
+        return shap_values.values
 
     def run(self, data):
         model_trained_data = {}
-        for client, df in data.items():
+        for client, df in tqdm(data.items()):
             result = self.process_client(client, df)
             if result:
                 model_trained_data[client] = result
@@ -48,7 +69,7 @@ class TrainModel:
 
         return formatted_data
 
-    def train_model(self, df_, n_models=100, n_estimators=10):
+    def train_model(self, df_, n_models=50, n_estimators=10, max_workers=10):
         importance_scores = {}
         for metric in ["metaGeomMScore1", "metaFBetaScore1"]:
 
@@ -58,26 +79,17 @@ class TrainModel:
             X_processed = X.astype(
                 {col: int for col in X.select_dtypes(include=["bool"]).columns}
             )
-            shap_values_list = []
-            feature_names = X_processed.columns
 
-            for i in range(n_models):
-                # Bootstrap sample (resampling with replacement)
-                X_boot, y_boot = resample(X_processed, y, random_state=i)
-                X_boot = np.array(X_boot)
-
-                # Train a new Random Forest model
-                model = RandomForestRegressor(n_estimators=n_estimators)
-                model.fit(X_boot, y_boot)
-
-                # Compute SHAP values
-                explainer = shap.Explainer(model, X_boot)
-                shap_values = explainer(X_boot, check_additivity=False)
-
-                # Store all SHAP values (full matrix) for later averaging
-                shap_values_list.append(
-                    shap_values.values
-                )  # Store full matrix, not just mean
+            # Use ProcessPoolExecutor for parallel processing
+            with ProcessPoolExecutor(max_workers=max_workers) as executor:
+                # Create a partial function with fixed arguments
+                train_fn = functools.partial(self._train_single_model, 
+                                            X_processed=X_processed, 
+                                            y=y, 
+                                            n_estimators=n_estimators)
+                
+                # Map the function to all model indices and collect results
+                shap_values_list = list(executor.map(train_fn, range(n_models)))
 
             # Convert list to a 3D NumPy array
             shap_values_array = np.array(
