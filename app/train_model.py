@@ -11,7 +11,7 @@ from tqdm import tqdm
 from app.data_processor import KEEP_VARS, MULTILABEL_VARS
 from app.error_handling import safe_process
 
-warnings.filterwarnings('ignore')
+warnings.filterwarnings("ignore")
 
 NUMERICAL_VARS = [
     "userCentricity",
@@ -39,7 +39,7 @@ class TrainModel:
         df = self.get_dummies(df, categorical_vars)
         df = self.normalise(df, NUMERICAL_VARS)
         return self.train_model(df)
-    
+
     def _train_single_model(self, i, X_processed, y, n_estimators):
         # Bootstrap sample (resampling with replacement)
         X_boot, y_boot = resample(X_processed, y, random_state=i)
@@ -52,7 +52,7 @@ class TrainModel:
         # Compute SHAP values
         explainer = shap.Explainer(model, X_boot)
         shap_values = explainer(X_boot, check_additivity=False)
-        
+
         return shap_values.values
 
     def run(self, data):
@@ -83,11 +83,13 @@ class TrainModel:
             # Use ProcessPoolExecutor for parallel processing
             with ProcessPoolExecutor(max_workers=max_workers) as executor:
                 # Create a partial function with fixed arguments
-                train_fn = functools.partial(self._train_single_model, 
-                                            X_processed=X_processed, 
-                                            y=y, 
-                                            n_estimators=n_estimators)
-                
+                train_fn = functools.partial(
+                    self._train_single_model,
+                    X_processed=X_processed,
+                    y=y,
+                    n_estimators=n_estimators,
+                )
+
                 # Map the function to all model indices and collect results
                 shap_values_list = list(executor.map(train_fn, range(n_models)))
 
