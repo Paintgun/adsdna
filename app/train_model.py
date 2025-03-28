@@ -69,6 +69,32 @@ class TrainModel:
 
         return formatted_data
 
+    def filter_nan_values(self, data_dict):
+        """
+        Filter out NaN values from importance scores dictionary
+        
+        Args:
+            data_dict: Dictionary containing variable names and importance scores
+        
+        Returns:
+            Filtered dictionary with NaN values removed
+        """
+        # Get indices of non-NaN values in both importance arrays
+        geom_mask = ~pd.isna(data_dict["geomMScoreImportance"])
+        fbeta_mask = ~pd.isna(data_dict["fBetaScoreImportance"])
+        
+        # Combined mask (keep only indices where both scores are not NaN)
+        valid_mask = geom_mask & fbeta_mask
+        
+        # Filter all arrays using the mask
+        filtered_dict = {
+            "varNames": [name for i, name in enumerate(data_dict["varNames"]) if valid_mask[i]],
+            "geomMScoreImportance": [score for i, score in enumerate(data_dict["geomMScoreImportance"]) if valid_mask[i]],
+            "fBetaScoreImportance": [score for i, score in enumerate(data_dict["fBetaScoreImportance"]) if valid_mask[i]]
+        }
+        
+        return filtered_dict
+
     def train_model(self, df_, n_models=50, n_estimators=10, max_workers=10):
         importance_scores = {}
         for metric in ["metaGeomMScore1", "metaFBetaScore1"]:
@@ -121,8 +147,10 @@ class TrainModel:
                 "metaFBetaScore1_blended_importance"
             ].values.tolist(),
         }
+        
+        filtered_output = self.filter_nan_values(output)
 
-        return output
+        return filtered_output
 
     def explode_multi_label(self, df, columns):
         df_copy = df.copy()
