@@ -1,3 +1,5 @@
+import math
+import numpy as np
 import pandas as pd
 from app.error_handling import safe_process
 
@@ -129,6 +131,8 @@ class DataProcessor:
                 plotType: string
                 geomMScore: number[], # this is a choice for y
                 fBetaScore: number[] # this is the other choice for y
+                geomMStats: dict,
+                fBetaStats: dict
             }[],
         }
 
@@ -163,6 +167,12 @@ class DataProcessor:
                             "plotType": "scatter",
                             "geomMScore": ads["metaGeomMScore1"][mask].values,
                             "fBetaScore": ads["metaFBetaScore1"][mask].values,
+                            "geomMStats": self.get_iqr_data(
+                                ads["metaGeomMScore1"][mask].values
+                            ),
+                            "fBetaStats": self.get_iqr_data(
+                                ads["metaFBetaScore1"][mask].values
+                            ),
                         }
                     )
                     continue
@@ -174,6 +184,15 @@ class DataProcessor:
                     fbetaLongFormat = self.create_long_format_dataframe(
                         client, ads, var, "metaFBetaScore1"
                     )
+
+                    # Group by Factor and calculate stats for each group
+                    geom_stats = self.get_grouped_iqr_stats(
+                        geomMLongFormat, "Factor", "metaGeomMScore1"
+                    )
+                    fbeta_stats = self.get_grouped_iqr_stats(
+                        fbetaLongFormat, "Factor", "metaFBetaScore1"
+                    )
+
                     client_obj["plotData"].append(
                         {
                             "varName": var,
@@ -181,21 +200,124 @@ class DataProcessor:
                             "plotType": "box",
                             "geomMScore": geomMLongFormat["metaGeomMScore1"].values,
                             "fBetaScore": fbetaLongFormat["metaFBetaScore1"].values,
+                            "geomMStats": geom_stats,
+                            "fBetaStats": fbeta_stats,
                         }
                     )
                     continue
 
-                client_obj["plotData"].append(
-                    {
-                        "varName": var,
-                        "varValue": ads[var][mask].values,
-                        "plotType": "box",
-                        "geomMScore": ads["metaGeomMScore1"][mask].values,
-                        "fBetaScore": ads["metaFBetaScore1"][mask].values,
-                    }
-                )
+                # For regular categorical variables, group by unique values
+                if pd.api.types.is_categorical_dtype(
+                    ads[var]
+                ) or pd.api.types.is_object_dtype(ads[var]):
+                    unique_values = ads[var][mask].unique()
+                    geom_stats = {}
+                    fbeta_stats = {}
+
+                    for val in unique_values:
+                        val_mask = (ads[var] == val) & mask
+                        geom_scores = ads["metaGeomMScore1"][val_mask].values
+                        fbeta_scores = ads["metaFBetaScore1"][val_mask].values
+
+                        if len(geom_scores) > 0:
+                            geom_stats[str(val)] = self.get_iqr_data(geom_scores)
+                        if len(fbeta_scores) > 0:
+                            fbeta_stats[str(val)] = self.get_iqr_data(fbeta_scores)
+
+                    client_obj["plotData"].append(
+                        {
+                            "varName": var,
+                            "varValue": ads[var][mask].values,
+                            "plotType": "box",
+                            "geomMScore": ads["metaGeomMScore1"][mask].values,
+                            "fBetaScore": ads["metaFBetaScore1"][mask].values,
+                            "geomMStats": geom_stats,
+                            "fBetaStats": fbeta_stats,
+                        }
+                    )
+                else:
+                    # For numerical variables, keep as is
+                    client_obj["plotData"].append(
+                        {
+                            "varName": var,
+                            "varValue": ads[var][mask].values,
+                            "plotType": "box",
+                            "geomMScore": ads["metaGeomMScore1"][mask].values,
+                            "fBetaScore": ads["metaFBetaScore1"][mask].values,
+                            "geomMStats": self.get_iqr_data(
+                                ads["metaGeomMScore1"][mask].values
+                            ),
+                            "fBetaStats": self.get_iqr_data(
+                                ads["metaFBetaScore1"][mask].values
+                            ),
+                        }
+                    )
 
         return client_obj
+
+    @safe_process(default_return={})
+    def get_iqr_data(self, data: list):
+        if len(data) == 0:
+            return {}
+
+        def get_percentile(data, p):
+            data.sort()
+            n = len(data)
+            x = n * p + 0.5
+
+            #  If integer, return
+            if x.is_integer():
+                return round(data[int(x - 1)], 2)  # account for zero-indexing
+
+            #  If not an integer, get the interpolated value of the values of floor and ceiling indices
+            x1, x2 = math.floor(x), math.ceil(x)
+            y1, y2 = data[x1 - 1], data[x2 - 1]  # account for zero-indexing
+            return round(np.interp(x=x, xp=[x1, x2], fp=[y1, y2]), 2)
+
+        ## calculate all boxplot statistics
+        q1, median, q3 = (
+            get_percentile(data, 0.25),
+            get_percentile(data, 0.50),
+            get_percentile(data, 0.75),
+        )
+        iqr = q3 - q1
+        # Lower fence value is the minimum of y values that is more than the calculated lower limit
+        lower_limit = q1 - 1.5 * iqr
+        lower_fence = round(min([i for i in data.tolist() if i >= lower_limit]), 2)
+        # Upper fence value is the maximum of y values that is less than the calculated upper limit
+        upper_limit = q3 + 1.5 * iqr
+        upper_fence = round(max([i for i in data.tolist() if i <= upper_limit]), 2)
+
+        return {
+            "lower_fence": lower_fence,
+            "min": min(data.tolist()),
+            "q1": q1,
+            "median": median,
+            "q3": q3,
+            "upper_fence": upper_fence,
+            "max": max(data.tolist()),
+            "iqr": iqr,
+        }
+
+    @safe_process(default_return={})
+    def get_grouped_iqr_stats(self, df, group_col, value_col):
+        """
+        Calculate IQR statistics for each group in the dataframe
+
+        Args:
+            df: DataFrame containing the data
+            group_col: Column to group by
+            value_col: Column containing values to calculate statistics for
+
+        Returns:
+            Dictionary with group values as keys and IQR statistics as values
+        """
+        stats = {}
+        for group_val in df[group_col].unique():
+            group_data = df[df[group_col] == group_val][value_col].values
+            if len(group_data) > 0:
+                stats[str(group_val)] = self.get_iqr_data(group_data)
+        return stats
 
     @safe_process(default_return=pd.DataFrame())
     def create_long_format_dataframe(
