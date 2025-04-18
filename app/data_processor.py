@@ -159,7 +159,11 @@ class DataProcessor:
             if var not in ["metaGeomMScore1", "metaFBetaScore1"]:
                 mask = ~pd.isna(ads[var])
                 if var in SCATTER_PLOTS:
-                    # Filter out NaN values
+
+                    stats = self.calculate_stats_by_group(
+                        ads, var, ["metaGeomMScore1", "metaFBetaScore1"], mask
+                    )
+
                     client_obj["plotData"].append(
                         {
                             "varName": var,
@@ -167,12 +171,8 @@ class DataProcessor:
                             "plotType": "scatter",
                             "geomMScore": ads["metaGeomMScore1"][mask].values,
                             "fBetaScore": ads["metaFBetaScore1"][mask].values,
-                            "geomMStats": self.get_iqr_data(
-                                ads["metaGeomMScore1"][mask].values
-                            ),
-                            "fBetaStats": self.get_iqr_data(
-                                ads["metaFBetaScore1"][mask].values
-                            ),
+                            "geomMStats": stats["metaGeomMScore1"],
+                            "fBetaStats": stats["metaFBetaScore1"],
                         }
                     )
                     continue
@@ -210,19 +210,10 @@ class DataProcessor:
                 if pd.api.types.is_categorical_dtype(
                     ads[var]
                 ) or pd.api.types.is_object_dtype(ads[var]):
-                    unique_values = ads[var][mask].unique()
-                    geom_stats = {}
-                    fbeta_stats = {}
 
-                    for val in unique_values:
-                        val_mask = (ads[var] == val) & mask
-                        geom_scores = ads["metaGeomMScore1"][val_mask].values
-                        fbeta_scores = ads["metaFBetaScore1"][val_mask].values
-
-                        if len(geom_scores) > 0:
-                            geom_stats[str(val)] = self.get_iqr_data(geom_scores)
-                        if len(fbeta_scores) > 0:
-                            fbeta_stats[str(val)] = self.get_iqr_data(fbeta_scores)
+                    stats = self.calculate_stats_by_group(
+                        ads, var, ["metaGeomMScore1", "metaFBetaScore1"], mask
+                    )
 
                     client_obj["plotData"].append(
                         {
@@ -231,12 +222,14 @@ class DataProcessor:
                             "plotType": "box",
                             "geomMScore": ads["metaGeomMScore1"][mask].values,
                             "fBetaScore": ads["metaFBetaScore1"][mask].values,
-                            "geomMStats": geom_stats,
-                            "fBetaStats": fbeta_stats,
+                            "geomMStats": stats["metaGeomMScore1"],
+                            "fBetaStats": stats["metaFBetaScore1"],
                         }
                     )
                 else:
                     # For numerical variables, keep as is
+                    statLabel = str(ads[var][mask].unique()[0])
+
                     client_obj["plotData"].append(
                         {
                             "varName": var,
@@ -244,21 +237,73 @@ class DataProcessor:
                             "plotType": "box",
                             "geomMScore": ads["metaGeomMScore1"][mask].values,
                             "fBetaScore": ads["metaFBetaScore1"][mask].values,
-                            "geomMStats": self.get_iqr_data(
-                                ads["metaGeomMScore1"][mask].values
-                            ),
-                            "fBetaStats": self.get_iqr_data(
-                                ads["metaFBetaScore1"][mask].values
-                            ),
+                            "geomMStats": {
+                                statLabel: self.get_iqr_data(
+                                    ads["metaGeomMScore1"][mask].values
+                                )
+                            },
+                            "fBetaStats": {
+                                statLabel: self.get_iqr_data(
+                                    ads["metaFBetaScore1"][mask].values
+                                )
+                            },
                         }
                     )
 
         return client_obj
 
     @safe_process(default_return={})
+    def calculate_stats_by_group(self, df, group_var, score_vars, mask=None):
+        """
+        Calculate statistics for each unique value in group_var for each score variable
+
+        Args:
+            df: DataFrame containing the data
+            group_var: Column to group by
+            score_vars: List of columns containing score values
+            mask: Boolean mask to filter rows (optional)
+
+        Returns:
+            Dictionary with score variables as keys, each containing a dictionary
+            of group values as keys and IQR statistics as values
+        """
+        if mask is None:
+            mask = pd.Series(True, index=df.index)
+
+        result = {}
+        unique_values = df[group_var][mask].unique()
+
+        for score_var in score_vars:
+            stats = {}
+            for val in unique_values:
+                val_mask = (df[group_var] == val) & mask
+                scores = df[score_var][val_mask].values
+
+                if len(scores) > 0:
+                    stats[str(val)] = self.get_iqr_data(scores)
+
+            result[score_var] = stats
+
+        return result
+
+    @safe_process(default_return={})
     def get_iqr_data(self, data: list):
         if len(data) == 0:
             return {}
+
+        # If there's only one data point, return simplified stats
+        if len(data) == 1:
+            value = data[0]
+            return {
+                "lower_fence": value,
+                "min": value,
+                "q1": value,
+                "median": value,
+                "q3": value,
+                "upper_fence": value,
+                "max": value,
+                "iqr": 0,
+            }
 
         def get_percentile(data, p):
             data.sort()
