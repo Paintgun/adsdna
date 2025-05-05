@@ -15,7 +15,7 @@ packaging==24.2
 pandas==2.2.3
 pathspec==0.12.1
 platformdirs==4.3.7
-pymongo==4.11.1
+pymongo==4.12.1
 python-dateutil==2.9.0.post0
 python-dotenv==1.0.1
 pytz==2025.1
