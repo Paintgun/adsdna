@@ -32,7 +32,7 @@ class DBUtils:
             {"$group": {"_id": f"${group_field}", "documents": {"$push": "$$ROOT"}}},
         ]
 
-        cursor = self.collection.aggregate(pipeline)
+        cursor = self.collection.aggregate(pipeline, allowDiskUse=True)
         # Use json_util to handle MongoDB-specific types like ObjectId
         documents = json.loads(json_util.dumps(list(cursor)))
         documents = {doc["_id"]: doc["documents"] for doc in documents}
