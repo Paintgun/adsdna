@@ -1,4 +1,4 @@
-# Model Building by Paintgun LTD
+# Ads DNA by Paintgun LTD (PAINTING THE INTERNET)
 
 ![ci](https://github.com/Paintgun/pg-model-building/workflows/ci/badge.svg)
 
