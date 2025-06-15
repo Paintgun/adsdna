@@ -5,10 +5,11 @@ import time
 from datetime import datetime, timezone
 from logtail import LogtailHandler
 import logging
+import os
 
 handler = LogtailHandler(
-    source_token="s8nqFSrHvQCq4JvU2uK7XTjq",
-    host="s1243360.eu-nbg-2.betterstackdata.com",
+    source_token=os.getenv("LOGTAIL_SOURCE_TOKEN"),
+    host=os.getenv("LOGTAIL_HOST"),
 )
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
