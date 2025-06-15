@@ -4,7 +4,7 @@
 
 The application represents a Python app with
 
-* a cron job to build models
+* jobs and REST API to build models and deliver models results
 
 ## Dissection of project files
 
@@ -96,46 +96,3 @@ black .
 * [EditorConfig helps maintain consistent coding styles](https://editorconfig.org/). See `.editorconfig` file.
 
 * [Dependabot creates pull requests to keep your dependencies secure and up-to-date](https://dependabot.com/). See `.github/dependabot.yml`.
-
-## Way of Working
-
-This part describes how the team structures their work.
-
-### Working Principles
-
-As a team of business and technical people we rely on the following values.
-
-* reliability
-* openness
-* goals achievement and not "officially" spent working hours
-* direct communication and proper feedback to each other
-* after the work is done we get together in a nice pub and celebrate our common achievements
-
-### Organizational Basics
-
-* We all know the way of working rules and follow them
-* Meetings start and finish in time; the moderator should be in the meeting 2-5 minutes ahead
-* Everyone has the right to block time for individual learning and development
-
-### Technological Basics
-
-* We keep all output of work in git (git is the source of truth; if documentation is needed elsewhere it is preferably brought there via export from git)
-* Branches are named after the corresponding ticket name
-* We do test wherever possible and reasonable; we automate the collection and evaluation of test results
-* We use metrics where possible and reasonable (our work should become data driven)
-
-### Working with User Stories
-
-User Stories (US) are defined with a goal to deliver a real business or tech values.
-They must be granular and clearly describing what must be achieved.
-A US must have all the business details and requirements needed for a proper implementation.
-If a US is a technical one then all tech details must be clarified in the analysis phase.
-
-### Retrospectives
-
-Once in two weeks we hold a retrospective meeting to discuss what have been achieved in the last weeks, what went well,
-what we didn't like and what we want to change and improve.
-
-### Definition of Ready (DoR)
-
-A user story or task is considered "ready" if all GitHub Actions are green and the corresponding pull request has been approved by other team members.
