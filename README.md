@@ -1,4 +1,4 @@
-# Ads DNA by Paintgun LTD (PAINTING THE INTERNET)
+# AdsDNA by Paintgun
 
 ![ci](https://github.com/Paintgun/pg-model-building/workflows/ci/badge.svg)
 
