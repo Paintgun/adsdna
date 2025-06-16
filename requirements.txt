@@ -22,7 +22,7 @@ pytz==2025.1
 requests==2.32.3
 scikit-learn==1.6.1
 scipy==1.15.2
-shap==0.47.0
+shap==0.48.0
 six==1.17.0
 slicer==0.0.8
 threadpoolctl==3.6.0
