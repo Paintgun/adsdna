@@ -330,12 +330,10 @@ class DataProcessor:
         iqr = q3 - q1
         # Lower fence value is the minimum of y values that is more than the calculated lower limit
         lower_limit = q1 - 1.5 * iqr
-        lower_fence = round(
-            min([i for i in data.tolist() if i >= lower_limit]), 2)
+        lower_fence = round(min([i for i in data.tolist() if i >= lower_limit]), 2)
         # Upper fence value is the maximum of y values that is less than the calculated upper limit
         upper_limit = q3 + 1.5 * iqr
-        upper_fence = round(
-            max([i for i in data.tolist() if i <= upper_limit]), 2)
+        upper_fence = round(max([i for i in data.tolist() if i <= upper_limit]), 2)
 
         return {
             "lower_fence": lower_fence,
@@ -412,7 +410,6 @@ class DataProcessor:
         )
 
         # Filter rows where Indicator == 1
-        long_df = long_df[long_df["Indicator"]
-                          == 1].drop(columns=["Indicator"])
+        long_df = long_df[long_df["Indicator"] == 1].drop(columns=["Indicator"])
 
         return long_df
