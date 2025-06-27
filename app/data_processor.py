@@ -227,8 +227,18 @@ class DataProcessor:
                         }
                     )
                 else:
-                    # For numerical variables, keep as is
-                    statLabel = str(ads[var][mask].unique()[0])
+                    # For numerical variables, compute stats for each unique value
+                    unique_vals = ads[var][mask].unique()
+                    geomMStats = {}
+                    fBetaStats = {}
+                    for val in unique_vals:
+                        submask = (ads[var] == val) & mask
+                        geomMStats[str(val)] = self.get_iqr_data(
+                            ads["metaGeomMScore1"][submask].values
+                        )
+                        fBetaStats[str(val)] = self.get_iqr_data(
+                            ads["metaFBetaScore1"][submask].values
+                        )
 
                     client_obj["plotData"].append(
                         {
@@ -237,16 +247,8 @@ class DataProcessor:
                             "plotType": "box",
                             "geomMScore": ads["metaGeomMScore1"][mask].values,
                             "fBetaScore": ads["metaFBetaScore1"][mask].values,
-                            "geomMStats": {
-                                statLabel: self.get_iqr_data(
-                                    ads["metaGeomMScore1"][mask].values
-                                )
-                            },
-                            "fBetaStats": {
-                                statLabel: self.get_iqr_data(
-                                    ads["metaFBetaScore1"][mask].values
-                                )
-                            },
+                            "geomMStats": geomMStats,
+                            "fBetaStats": fBetaStats,
                         }
                     )
 
@@ -319,7 +321,7 @@ class DataProcessor:
             y1, y2 = data[x1 - 1], data[x2 - 1]  # account for zero-indexing
             return round(np.interp(x=x, xp=[x1, x2], fp=[y1, y2]), 2)
 
-        ## calculate all boxplot statistics
+        # calculate all boxplot statistics
         q1, median, q3 = (
             get_percentile(data, 0.25),
             get_percentile(data, 0.50),
@@ -328,10 +330,12 @@ class DataProcessor:
         iqr = q3 - q1
         # Lower fence value is the minimum of y values that is more than the calculated lower limit
         lower_limit = q1 - 1.5 * iqr
-        lower_fence = round(min([i for i in data.tolist() if i >= lower_limit]), 2)
+        lower_fence = round(
+            min([i for i in data.tolist() if i >= lower_limit]), 2)
         # Upper fence value is the maximum of y values that is less than the calculated upper limit
         upper_limit = q3 + 1.5 * iqr
-        upper_fence = round(max([i for i in data.tolist() if i <= upper_limit]), 2)
+        upper_fence = round(
+            max([i for i in data.tolist() if i <= upper_limit]), 2)
 
         return {
             "lower_fence": lower_fence,
@@ -408,6 +412,7 @@ class DataProcessor:
         )
 
         # Filter rows where Indicator == 1
-        long_df = long_df[long_df["Indicator"] == 1].drop(columns=["Indicator"])
+        long_df = long_df[long_df["Indicator"]
+                          == 1].drop(columns=["Indicator"])
 
         return long_df

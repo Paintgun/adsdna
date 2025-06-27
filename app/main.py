@@ -27,17 +27,46 @@ class Orchestrator:
         while True:
             if datetime.now(tz=timezone.utc).minute == 00:
                 self.process_data()
-            time.sleep(60)  # wait a minute to ensure we don't run the same tick twice
+            # wait a minute to ensure we don't run the same tick twice
+            time.sleep(60)
 
     def process_data(self):
-        docs = self.db_client.find_documents_and_groupby(
-            {"metaGeomMScore1": {"$exists": True}}, "clientId"
-        )
-        docs_df = self.data_processor.build_ads_dataframe(docs)
-        processed_for_plots = self.data_processor.process_data_for_plots(docs_df)
-        self.db_client.serialise_eda(processed_for_plots)
-        model_trained_data = self.model_trainer.run(docs_df)
-        self.db_client.serialise_model(model_trained_data)
+        """
+        Process data client-by-client to avoid large BSON responses.
+
+        Steps:
+        1. Fetch distinct clientIds that have scoring fields.
+        2. For each clientId, pull that client’s docs, run EDA + model, and
+           serialise results immediately.
+        """
+        base_filter = {"metaGeomMScore1": {"$exists": True}}
+
+        # 1. Get all relevant clientIds
+        client_ids = self.db_client.get_distinct_values(
+            "clientId", base_filter)
+
+        for client_id in client_ids:
+
+            # 2. Pull docs only for this client
+            docs_list = self.db_client.find_documents(
+                {**base_filter, "clientId": client_id}
+            )
+            if not docs_list:
+                continue
+
+            # Build structure expected by downstream code: {clientId: docs}
+            docs_dict = {client_id: docs_list}
+            docs_df = self.data_processor.build_ads_dataframe(docs_dict)
+
+            # --- EDA ---
+            processed_for_plots = self.data_processor.process_data_for_plots(
+                docs_df
+            )
+            self.db_client.serialise_eda(processed_for_plots)
+
+            # --- Model ---
+            model_trained_data = self.model_trainer.run(docs_df)
+            self.db_client.serialise_model(model_trained_data)
 
 
 if __name__ == "__main__":
