@@ -51,6 +51,16 @@ class DBUtils:
         documents = json.loads(json_util.dumps(list(cursor)))
         return documents
 
+    def get_distinct_values(self, field, filter_query=None):
+        """
+        Return a list of distinct values for a given field, constrained by an optional filter.
+        This is useful for batching work per unique key (e.g., clientId) to avoid large BSON
+        responses and excessive memory use.
+        """
+        if filter_query is None:
+            filter_query = {}
+        return self.collection.distinct(field, filter_query)
+
     def convert_to_numpy(self, obj):
         if isinstance(obj, np.integer):
             return int(obj)
