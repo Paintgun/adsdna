@@ -227,8 +227,18 @@ class DataProcessor:
                         }
                     )
                 else:
-                    # For numerical variables, keep as is
-                    statLabel = str(ads[var][mask].unique()[0])
+                    # For numerical variables, compute stats for each unique value
+                    unique_vals = ads[var][mask].unique()
+                    geomMStats = {}
+                    fBetaStats = {}
+                    for val in unique_vals:
+                        submask = (ads[var] == val) & mask
+                        geomMStats[str(val)] = self.get_iqr_data(
+                            ads["metaGeomMScore1"][submask].values
+                        )
+                        fBetaStats[str(val)] = self.get_iqr_data(
+                            ads["metaFBetaScore1"][submask].values
+                        )
 
                     client_obj["plotData"].append(
                         {
@@ -237,16 +247,8 @@ class DataProcessor:
                             "plotType": "box",
                             "geomMScore": ads["metaGeomMScore1"][mask].values,
                             "fBetaScore": ads["metaFBetaScore1"][mask].values,
-                            "geomMStats": {
-                                statLabel: self.get_iqr_data(
-                                    ads["metaGeomMScore1"][mask].values
-                                )
-                            },
-                            "fBetaStats": {
-                                statLabel: self.get_iqr_data(
-                                    ads["metaFBetaScore1"][mask].values
-                                )
-                            },
+                            "geomMStats": geomMStats,
+                            "fBetaStats": fBetaStats,
                         }
                     )
 
@@ -319,7 +321,7 @@ class DataProcessor:
             y1, y2 = data[x1 - 1], data[x2 - 1]  # account for zero-indexing
             return round(np.interp(x=x, xp=[x1, x2], fp=[y1, y2]), 2)
 
-        ## calculate all boxplot statistics
+        # calculate all boxplot statistics
         q1, median, q3 = (
             get_percentile(data, 0.25),
             get_percentile(data, 0.50),
