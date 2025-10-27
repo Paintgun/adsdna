@@ -17,7 +17,7 @@ pathspec==0.12.1
 platformdirs==4.3.7
 pymongo==4.11.1
 python-dateutil==2.9.0.post0
-python-dotenv==1.0.1
+python-dotenv==1.2.1
 pytz==2025.1
 requests==2.32.3
 scikit-learn==1.6.1
