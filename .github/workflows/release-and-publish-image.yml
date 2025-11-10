@@ -48,7 +48,7 @@ jobs:
           docker push ${{ env.DOCKER_REGISTRY }}/${{ env.NAME }}:${{ env.VERSION }}
 
       - name: Deploy to Digital Ocean
-        uses: appleboy/ssh-action@v0.1.5
+        uses: appleboy/ssh-action@v1.2.3
         with:
           # ssh root@<floating or host IP> -i <path to>/id_rsa_do_dev
           host: ${{ secrets.APP_HOST_DEV }}
